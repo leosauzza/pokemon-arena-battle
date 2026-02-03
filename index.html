@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Arena Battle</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Selection Screen -->
+        <div id="selection-screen">
+            <h1>⚔️ Pokémon Arena Battle ⚔️</h1>
+            <p class="selection-instruction">
+                Select your Pokémon (click on a card)<br>
+                Then set teams for each Pokémon (1-4)<br>
+                Pokémon on the same team won't fight each other
+            </p>
+            <div class="pokemon-grid">
+                <div class="pokemon-card" data-pokemon="charmander">
+                    <span class="role-indicator">SELECT</span>
+                    <div class="pokemon-icon charmander-icon">🔥</div>
+                    <div class="pokemon-name">Charmander</div>
+                    <div class="pokemon-attacks">
+                        <span class="attack-key">1</span> Flamethrower<br>
+                        <span class="attack-key">2</span> Scratch
+                    </div>
+                    <div class="team-selector">
+                        <button class="team-btn" data-team="1">1</button>
+                        <button class="team-btn" data-team="2">2</button>
+                        <button class="team-btn" data-team="3">3</button>
+                        <button class="team-btn" data-team="4">4</button>
+                    </div>
+                </div>
+                <div class="pokemon-card" data-pokemon="bulbasaur">
+                    <span class="role-indicator">SELECT</span>
+                    <div class="pokemon-icon bulbasaur-icon">🌿</div>
+                    <div class="pokemon-name">Bulbasaur</div>
+                    <div class="pokemon-attacks">
+                        <span class="attack-key">1</span> Vine Whip<br>
+                        <span class="attack-key">2</span> Solar Beam
+                    </div>
+                    <div class="team-selector">
+                        <button class="team-btn" data-team="1">1</button>
+                        <button class="team-btn" data-team="2">2</button>
+                        <button class="team-btn" data-team="3">3</button>
+                        <button class="team-btn" data-team="4">4</button>
+                    </div>
+                </div>
+                <div class="pokemon-card" data-pokemon="squirtle">
+                    <span class="role-indicator">SELECT</span>
+                    <div class="pokemon-icon squirtle-icon">💧</div>
+                    <div class="pokemon-name">Squirtle</div>
+                    <div class="pokemon-attacks">
+                        <span class="attack-key">1</span> Water Gun<br>
+                        <span class="attack-key">2</span> Hydro Pulse<br>
+                        <span class="attack-key">3</span> Razor Leaf
+                    </div>
+                    <div class="team-selector">
+                        <button class="team-btn" data-team="1">1</button>
+                        <button class="team-btn" data-team="2">2</button>
+                        <button class="team-btn" data-team="3">3</button>
+                        <button class="team-btn" data-team="4">4</button>
+                    </div>
+                </div>
+                <div class="pokemon-card" data-pokemon="pikachu">
+                    <span class="role-indicator">SELECT</span>
+                    <div class="pokemon-icon pikachu-icon">⚡</div>
+                    <div class="pokemon-name">Pikachu</div>
+                    <div class="pokemon-attacks">
+                        <span class="attack-key">1</span> Quick Attack<br>
+                        <span class="attack-key">2</span> Thunderbolt
+                    </div>
+                    <div class="team-selector">
+                        <button class="team-btn" data-team="1">1</button>
+                        <button class="team-btn" data-team="2">2</button>
+                        <button class="team-btn" data-team="3">3</button>
+                        <button class="team-btn" data-team="4">4</button>
+                    </div>
+                </div>
+            </div>
+            <button id="start-game-btn" disabled>Start Battle!</button>
+            <button id="practice-arena-btn" disabled>Practice Arena</button>
+        </div>
+        
+        <!-- Game UI -->
+        <div id="game-ui">
+            <div class="health-bars" id="health-bars"></div>
+            
+            <!-- Attack Preview Notification -->
+            <div id="attack-preview-notification"></div>
+            
+            <!-- Crosshair -->
+            <div id="crosshair"></div>
+            
+            <!-- Attack Bar -->
+            <div class="attack-bar" id="attack-bar"></div>
+            
+            <!-- Controls hint -->
+            <div class="controls-hint">
+                <div class="controls-row"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> - Move</div>
+                <span class="separator">|</span>
+                <div class="controls-row"><span class="key">Mouse</span> - Aim</div>
+                <span class="separator">|</span>
+                <div class="controls-row"><span class="key">1</span><span class="key">2</span><span class="key">3</span><span class="key">4</span> - Select Attack</div>
+                <span class="separator">|</span>
+                <div class="controls-row"><span class="key">LMB</span> - Execute / <span class="key">RMB</span> - Cancel</div>
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="game-over-screen">
+            <h1 id="game-over-title">Victory!</h1>
+            <p id="game-over-message"></p>
+            <button id="play-again-btn">Play Again</button>
+        </div>
+    </div>
+    
+    <!-- Main Game Script -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
