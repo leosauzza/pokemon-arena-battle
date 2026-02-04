@@ -3,32 +3,23 @@
 // ==========================================
 
 import { Game } from './core/game.js';
+import { pokemonRegistry } from './pokemon/pokemon-registry.js';
 
-// Game instance
 let game = null;
 let isPracticeMode = false;
 
-// Selection state
 let selectedPokemon = null;
-let pokemonTeams = {
-    charmander: 1,
-    bulbasaur: 2,
-    squirtle: 3,
-    pikachu: 4
-};
+let pokemonTeams = {};
 
-// Initialize selection screen
-// Note: Since this is a module script, it runs after DOM is ready
 try {
     setupSelectionScreen();
-    
-    // Ensure game UI is hidden and selection is visible
+
     const gameUi = document.getElementById('game-ui');
     const selectionScreen = document.getElementById('selection-screen');
-    
+
     if (gameUi) gameUi.style.display = 'none';
     if (selectionScreen) selectionScreen.style.display = 'flex';
-    
+
     console.log('✅ Selection screen initialized');
     console.log('📁 Make sure to run via web server, not file://');
     console.log('   Use: ./start-server.sh  or  python3 server.py');
@@ -37,92 +28,119 @@ try {
 }
 
 function setupSelectionScreen() {
-    const cards = document.querySelectorAll('.pokemon-card');
-    
-    if (cards.length === 0) {
-        console.error('No pokemon cards found!');
+    const grid = document.querySelector('.pokemon-grid');
+    if (!grid) {
+        console.error('Pokemon grid not found!');
         return;
     }
-    
-    cards.forEach(card => {
-        const pokemon = card.dataset.pokemon;
-        const roleIndicator = card.querySelector('.role-indicator');
-        const teamBtns = card.querySelectorAll('.team-btn');
-        
-        if (!pokemon) {
-            console.error('Card missing data-pokemon attribute', card);
-            return;
-        }
-        
-        // Set default team button active
-        const defaultTeam = pokemonTeams[pokemon];
-        teamBtns.forEach(btn => {
-            if (parseInt(btn.dataset.team) === defaultTeam) {
-                btn.classList.add('active');
-            }
-        });
-        
-        // Pokemon selection - use the card element directly
-        card.addEventListener('click', (e) => {
-            // Check if clicked on team button or inside team button
-            if (e.target.closest('.team-btn')) {
-                return;
-            }
-            
-            console.log('Selected pokemon:', pokemon);
-            
-            // Deselect all
-            cards.forEach(c => {
-                c.classList.remove('selected');
-                c.classList.add('ai');
-                const ri = c.querySelector('.role-indicator');
-                if (ri) {
-                    ri.textContent = 'AI';
-                    ri.className = 'role-indicator ai';
-                }
-            });
-            
-            // Select this one
-            card.classList.remove('ai');
-            card.classList.add('selected');
-            if (roleIndicator) {
-                roleIndicator.textContent = 'PLAYER';
-                roleIndicator.className = 'role-indicator player';
-            }
-            
-            selectedPokemon = pokemon;
-            updateStartButton();
-        });
-        
-        // Team selection - attach to each button individually
-        teamBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                console.log('Team button clicked for', pokemon, 'team', btn.dataset.team);
-                
-                // Remove active from all buttons in this card
-                teamBtns.forEach(b => b.classList.remove('active'));
-                // Add active to clicked button
-                btn.classList.add('active');
-                
-                // Update team
-                pokemonTeams[pokemon] = parseInt(btn.dataset.team);
-            });
-        });
+    grid.innerHTML = '';
+
+    const allPokemon = pokemonRegistry.getAll();
+    console.log('Loading Pokemon cards:', allPokemon);
+
+    allPokemon.forEach((pokemon, index) => {
+        const defaultTeam = index + 1;
+        pokemonTeams[pokemon.id] = defaultTeam;
+
+        const card = createPokemonCard(pokemon, defaultTeam);
+        grid.appendChild(card);
     });
-    
-    // Start game button
+
+    console.log('Created', allPokemon.length, 'Pokemon cards');
+
     document.getElementById('start-game-btn').addEventListener('click', startGame);
-    
-    // Practice arena button
     document.getElementById('practice-arena-btn').addEventListener('click', startPracticeArena);
-    
-    // Play again button
     document.getElementById('play-again-btn').addEventListener('click', () => {
         location.reload();
     });
+}
+
+function createPokemonCard(pokemon, defaultTeam) {
+    const card = document.createElement('div');
+    card.className = 'pokemon-card ai';
+    card.dataset.pokemon = pokemon.id;
+
+    const iconClass = `${pokemon.id}-icon`;
+
+    card.innerHTML = `
+        <div class="role-indicator ai">AI</div>
+        <div class="pokemon-icon ${iconClass}">${pokemon.icon}</div>
+        <h3>${pokemon.name}</h3>
+        <div class="pokemon-stats">
+            <span class="stat">HP: ${pokemon.stats.hp}</span>
+            <span class="stat">ATK: ${pokemon.stats.attack}</span>
+            <span class="stat">SPD: ${pokemon.stats.moveSpeed}</span>
+        </div>
+        <div class="attacks-preview">
+            ${pokemon.attacks.map(attackId => {
+                const attackMeta = getAttackMetadata(attackId);
+                return `<div class="attack-chip" title="${attackMeta.name}: ${attackMeta.description}">${attackMeta.icon} ${attackMeta.name}</div>`;
+            }).join('')}
+        </div>
+        <div class="team-selector">
+            <button class="team-btn ${defaultTeam === 1 ? 'active' : ''}" data-team="1">1</button>
+            <button class="team-btn ${defaultTeam === 2 ? 'active' : ''}" data-team="2">2</button>
+            <button class="team-btn ${defaultTeam === 3 ? 'active' : ''}" data-team="3">3</button>
+            <button class="team-btn ${defaultTeam === 4 ? 'active' : ''}" data-team="4">4</button>
+        </div>
+    `;
+
+    const roleIndicator = card.querySelector('.role-indicator');
+    const teamBtns = card.querySelectorAll('.team-btn');
+
+    card.addEventListener('click', (e) => {
+        if (e.target.closest('.team-btn')) return;
+
+        const allCards = document.querySelectorAll('.pokemon-card');
+        allCards.forEach(c => {
+            c.classList.remove('selected');
+            c.classList.add('ai');
+            const ri = c.querySelector('.role-indicator');
+            if (ri) {
+                ri.textContent = 'AI';
+                ri.className = 'role-indicator ai';
+            }
+        });
+
+        card.classList.remove('ai');
+        card.classList.add('selected');
+        if (roleIndicator) {
+            roleIndicator.textContent = 'PLAYER';
+            roleIndicator.className = 'role-indicator player';
+        }
+
+        selectedPokemon = pokemon.id;
+        updateStartButton();
+    });
+
+    teamBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            teamBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            pokemonTeams[pokemon.id] = parseInt(btn.dataset.team);
+        });
+    });
+
+    return card;
+}
+
+function getAttackMetadata(attackId) {
+    const attackMap = {
+        flamethrower: { name: 'Flamethrower', description: 'Cone of fire', icon: '🔥' },
+        scratch: { name: 'Scratch', description: 'Melee attack', icon: '🐾' },
+        vinewhip: { name: 'Vine Whip', description: 'Line attack', icon: '🌿' },
+        solarbeam: { name: 'Solar Beam', description: 'Charged beam', icon: '☀️' },
+        razorleaf: { name: 'Razor Leaf', description: 'Leaf stream', icon: '🍃' },
+        watergun: { name: 'Water Gun', description: 'Water beam', icon: '💧' },
+        hydropulse: { name: 'Hydro Pulse', description: 'Water projectile', icon: '🌊' },
+        quickattack: { name: 'Quick Attack', description: 'Quick dash', icon: '⚡' },
+        thunderbolt: { name: 'Thunderbolt', description: 'Electric projectile', icon: '🌩️' }
+    };
+    return attackMap[attackId] || { name: attackId, description: '', icon: '?' };
 }
 
 function updateStartButton() {
@@ -134,14 +152,12 @@ function updateStartButton() {
 
 function startGame() {
     if (!selectedPokemon) return;
-    
+
     isPracticeMode = false;
-    
-    // Hide selection screen
+
     document.getElementById('selection-screen').style.display = 'none';
     document.getElementById('game-ui').style.display = 'block';
-    
-    // Initialize game
+
     game = new Game();
     window.gameInstance = game;
     game.start(selectedPokemon, pokemonTeams);
@@ -149,14 +165,12 @@ function startGame() {
 
 function startPracticeArena() {
     if (!selectedPokemon) return;
-    
+
     isPracticeMode = true;
-    
-    // Hide selection screen
+
     document.getElementById('selection-screen').style.display = 'none';
     document.getElementById('game-ui').style.display = 'block';
-    
-    // Initialize practice game
+
     import('./core/practice-game.js').then(module => {
         game = new module.PracticeGame();
         window.gameInstance = game;

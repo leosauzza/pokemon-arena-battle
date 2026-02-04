@@ -124,6 +124,42 @@ body {
     margin-right: 4px;
 }
 
+.pokemon-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 1rem;
+}
+
+.pokemon-stats .stat {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    color: #ccc;
+}
+
+.attacks-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+
+.attack-chip {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    color: #ddd;
+    cursor: help;
+    transition: background 0.2s;
+}
+
+.attack-chip:hover {
+    background: rgba(0, 0, 0, 0.6);
+}
+
 .team-selector {
     display: flex;
     justify-content: center;

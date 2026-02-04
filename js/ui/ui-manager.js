@@ -2,9 +2,10 @@
 // UI MANAGER
 // ==========================================
 
-import { TeamColors, PokemonTypes } from '../utils/constants.js';
+import { TeamColors } from '../utils/constants.js';
 import { DamageNumbers } from './damage-numbers.js';
 import { formatCooldown } from '../utils/helpers.js';
+import { pokemonRegistry } from '../pokemon/pokemon-registry.js';
 
 export class UIManager {
     constructor(scene, camera) {
@@ -25,24 +26,25 @@ export class UIManager {
     createHealthBars() {
         const container = document.getElementById('health-bars');
         container.innerHTML = '';
-        
+
         this.players.forEach(player => {
             const bar = document.createElement('div');
             bar.className = `health-bar ${player.isAI ? '' : 'self'}`;
             bar.id = `hp-bar-${player.id}`;
-            
+
             const color = TeamColors[player.team];
             const textColor = player.team === 4 ? '#000' : '#fff';
-            
+            const pokemonData = pokemonRegistry.get(player.pokemonId);
+
             bar.innerHTML = `
                 <div class="team-indicator" style="background: ${color}; color: ${textColor}">${player.team}</div>
-                <div class="health-bar-name">${PokemonTypes[player.type].name}</div>
+                <div class="health-bar-name">${pokemonData ? pokemonData.name : player.pokemonId}</div>
                 <div class="health-bar-outer">
                     <div class="health-bar-inner high" style="width: 100%"></div>
                 </div>
                 <div class="health-bar-hp">40/40</div>
             `;
-            
+
             container.appendChild(bar);
         });
     }
