@@ -2,9 +2,6 @@
 .git
 .gitignore
 
-# Docker files
-Dockerfile
-docker-compose.yml
 .dockerignore
 
 # Editor files
