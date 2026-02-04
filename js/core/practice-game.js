@@ -158,7 +158,11 @@ export class PracticeGame {
         this.player.onDamageTaken = (amount, damagedPlayer) => {
             this.uiManager.showDamage(amount, damagedPlayer.position.clone().add(new THREE.Vector3(0, 2, 0)));
         };
-        
+
+        this.dummy.onDamageTaken = (amount, dummy) => {
+            this.uiManager.showDamage(amount, dummy.position.clone().add(new THREE.Vector3(0, 2, 0)));
+        };
+
         this.dummy.onDamageTaken = (amount, dummy) => {
             this.uiManager.showDamage(amount, dummy.position.clone().add(new THREE.Vector3(0, 2, 0)));
         };
@@ -265,46 +269,43 @@ export class PracticeGame {
     
     updatePlayerMovement() {
         if (!this.player || !this.player.isAlive || this.player.isLocked) return;
-        
+
         const moveVector = this.input.getMovementVector();
-        const moveSpeed = CONFIG.MOVE_SPEED;
-        
-        // Calculate world movement vector (even if not moving, needed for rotation)
+        const moveSpeed = this.player.moveSpeed || CONFIG.MOVE_SPEED;
+
         let worldMove = new THREE.Vector3();
-        
+
         if (moveVector.length() > 0) {
-            // Transform to camera space
             const cameraForward = new THREE.Vector3();
             this.camera.getWorldDirection(cameraForward);
             cameraForward.y = 0;
             cameraForward.normalize();
-            
+
             const cameraRight = new THREE.Vector3();
-            cameraRight.crossVectors(cameraForward, new THREE.Vector3(0, 1, 0));
-            
+            cameraRight.crossVectors(cameraForward, new THREE.Vector3(0,1,0));
+
             worldMove
                 .addScaledVector(cameraForward, moveVector.z)
                 .addScaledVector(cameraRight, moveVector.x);
-            
-            // Check if player is currently inside an obstacle
+
             const pushOut = this.terrain.getCollisionPushVector(this.player.position);
             if (pushOut.length() > 0) {
                 this.player.velocity.copy(pushOut).multiplyScalar(100);
             } else {
                 const newPos = this.player.position.clone().add(worldMove.clone().multiplyScalar(0.016));
-                
+
                 if (!this.terrain.checkObstacleCollision(newPos)) {
                     this.player.velocity.copy(worldMove).multiplyScalar(moveSpeed);
                 } else {
                     const slideX = new THREE.Vector3(worldMove.x, 0, 0);
                     const slideZ = new THREE.Vector3(0, 0, worldMove.z);
-                    
+
                     const testPosX = this.player.position.clone().add(slideX.clone().multiplyScalar(0.016));
                     const blockedX = this.terrain.checkObstacleCollision(testPosX);
-                    
+
                     const testPosZ = this.player.position.clone().add(slideZ.clone().multiplyScalar(0.016));
                     const blockedZ = this.terrain.checkObstacleCollision(testPosZ);
-                    
+
                     if (!blockedX && Math.abs(worldMove.x) > 0.01) {
                         this.player.velocity.x = worldMove.x * moveSpeed;
                         this.player.velocity.z = 0;
@@ -315,20 +316,17 @@ export class PracticeGame {
                 }
             }
         }
-        
-        // Handle rotation - this should work even when not moving
+
         if (!this.player.rotationLocked) {
             if (this.player.selectedAttack || this.player.isAttacking) {
-                // If has selected attack or is attacking, face mouse
                 const toMouse = this.input.getMousePosition().sub(this.player.position);
                 this.player.rotation = Math.atan2(toMouse.x, toMouse.z);
             } else if (worldMove.length() > 0) {
-                // Rotate towards movement direction
                 this.player.rotation = Math.atan2(worldMove.x, worldMove.z);
             }
         }
     }
-    
+
     onResize() {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
@@ -351,9 +349,10 @@ export class PracticeGame {
 // PRACTICE UI MANAGER (Simplified for practice mode)
 // ==========================================
 
-import { TeamColors, PokemonTypes } from '../utils/constants.js';
+import { TeamColors } from '../utils/constants.js';
 import { DamageNumbers } from '../ui/damage-numbers.js';
 import { formatCooldown } from '../utils/helpers.js';
+import { pokemonRegistry } from '../pokemon/pokemon-registry.js';
 
 class PracticeUIManager {
     constructor(scene, camera) {
@@ -363,41 +362,41 @@ class PracticeUIManager {
         this.dummy = null;
         this.damageNumbers = new DamageNumbers(scene, camera);
     }
-    
+
     setPlayer(player, dummy) {
         this.player = player;
         this.dummy = dummy;
         this.createHealthBars();
     }
-    
+
     createHealthBars() {
         const container = document.getElementById('health-bars');
         container.innerHTML = '';
-        
-        // Player health bar
+
         if (this.player) {
             const bar = document.createElement('div');
             bar.className = 'health-bar self';
             bar.id = 'hp-bar-player';
-            
+
+            const pokemonData = pokemonRegistry.get(this.player.pokemonId);
+
             bar.innerHTML = `
                 <div class="team-indicator" style="background: ${TeamColors[1]}; color: #fff">1</div>
-                <div class="health-bar-name">${PokemonTypes[this.player.type].name}</div>
+                <div class="health-bar-name">${pokemonData ? pokemonData.name : this.player.pokemonId}</div>
                 <div class="health-bar-outer">
                     <div class="health-bar-inner high" style="width: 100%"></div>
                 </div>
                 <div class="health-bar-hp">40/40</div>
             `;
-            
+
             container.appendChild(bar);
         }
-        
-        // Dummy health bar
+
         if (this.dummy) {
             const bar = document.createElement('div');
             bar.className = 'health-bar';
             bar.id = 'hp-bar-dummy';
-            
+
             bar.innerHTML = `
                 <div class="team-indicator" style="background: #888; color: #fff">T</div>
                 <div class="health-bar-name">Training Dummy</div>
@@ -406,7 +405,7 @@ class PracticeUIManager {
                 </div>
                 <div class="health-bar-hp">40/40</div>
             `;
-            
+
             container.appendChild(bar);
         }
     }

@@ -9,6 +9,7 @@ import { InputHandler } from './input.js';
 import { Player } from '../entities/player.js';
 import { UIManager } from '../ui/ui-manager.js';
 import { checkObstacleCollision } from '../utils/helpers.js';
+import { pokemonRegistry } from '../pokemon/pokemon-registry.js';
 
 export class Game {
     constructor() {
@@ -16,24 +17,18 @@ export class Game {
         this.camera = null;
         this.renderer = null;
         this.clock = new THREE.Clock();
-        
+
         this.gameState = GameState.MENU;
         this.terrain = null;
         this.input = null;
         this.uiManager = null;
-        
+
         this.players = [];
         this.projectiles = [];
-        
-        // Player configuration from menu
+
         this.selectedPokemon = null;
-        this.pokemonTeams = {
-            charmander: 1,
-            bulbasaur: 2,
-            squirtle: 3,
-            pikachu: 4
-        };
-        
+        this.pokemonTeams = {};
+
         this.init();
     }
     
@@ -175,34 +170,31 @@ export class Game {
     start(selectedPokemon, teams) {
         this.selectedPokemon = selectedPokemon;
         this.pokemonTeams = teams;
-        
-        // Create players
-        const pokemonList = ['charmander', 'bulbasaur', 'squirtle', 'pikachu'];
-        
-        pokemonList.forEach((pokemon, index) => {
-            const isPlayer = pokemon === selectedPokemon;
-            const team = this.pokemonTeams[pokemon];
-            const player = new Player(pokemon, team, !isPlayer, index);
-            
+
+        const pokemonList = pokemonRegistry.getIds();
+
+        pokemonList.forEach((pokemonId, index) => {
+            const isPlayer = pokemonId === selectedPokemon;
+            const team = this.pokemonTeams[pokemonId] || 1;
+            const player = new Player(pokemonId, team, !isPlayer, index);
+
             player.addToScene(this.scene);
-            
-            // Show damage number when this player takes damage
+
             player.onDamageTaken = (amount, damagedPlayer) => {
                 this.uiManager.showDamage(amount, damagedPlayer.position.clone().add(new THREE.Vector3(0, 2, 0)));
                 this.checkWinCondition();
             };
-            
+
             this.players.push(player);
         });
-        
-        // Setup UI
+
         this.uiManager.setPlayers(this.players);
-        
+
         const player = this.getPlayer();
         if (player) {
             this.uiManager.createAttackBar(player);
         }
-        
+
         this.gameState = GameState.PLAYING;
     }
     
@@ -305,75 +297,59 @@ export class Game {
     updatePlayerMovement() {
         const player = this.getPlayer();
         if (!player || !player.isAlive || player.isLocked) return;
-        
+
         const moveVector = this.input.getMovementVector();
-        const moveSpeed = CONFIG.MOVE_SPEED;
-        
-        // Calculate world movement vector (even if not moving, needed for rotation)
+        const moveSpeed = player.moveSpeed || CONFIG.MOVE_SPEED;
+
         let worldMove = new THREE.Vector3();
-        
+
         if (moveVector.length() > 0) {
-            // Transform to camera space
             const cameraForward = new THREE.Vector3();
             this.camera.getWorldDirection(cameraForward);
             cameraForward.y = 0;
             cameraForward.normalize();
-            
+
             const cameraRight = new THREE.Vector3();
             cameraRight.crossVectors(cameraForward, new THREE.Vector3(0, 1, 0));
-            
+
             worldMove
                 .addScaledVector(cameraForward, moveVector.z)
                 .addScaledVector(cameraRight, moveVector.x);
-            
-            // Check if player is currently inside an obstacle
+
             const pushOut = this.terrain.getCollisionPushVector(player.position);
             if (pushOut.length() > 0) {
-                // Player is stuck inside obstacle, push them out first
-                player.velocity.copy(pushOut).multiplyScalar(100); // Strong push out
+                player.velocity.copy(pushOut).multiplyScalar(100);
             } else {
-                // Normal movement with collision detection
                 const newPos = player.position.clone().add(worldMove.clone().multiplyScalar(0.016));
-                
+
                 if (!this.terrain.checkObstacleCollision(newPos)) {
-                    // No collision, can move freely
                     player.velocity.copy(worldMove).multiplyScalar(moveSpeed);
                 } else {
-                    // Collision detected - try sliding
-                    // Get the collision normal to determine how to slide
                     const slideX = new THREE.Vector3(worldMove.x, 0, 0);
                     const slideZ = new THREE.Vector3(0, 0, worldMove.z);
-                    
-                    // Try X only
+
                     const testPosX = player.position.clone().add(slideX.clone().multiplyScalar(0.016));
                     const blockedX = this.terrain.checkObstacleCollision(testPosX);
-                    
-                    // Try Z only  
+
                     const testPosZ = player.position.clone().add(slideZ.clone().multiplyScalar(0.016));
                     const blockedZ = this.terrain.checkObstacleCollision(testPosZ);
-                    
+
                     if (!blockedX && Math.abs(worldMove.x) > 0.01) {
-                        // Can slide in X direction
                         player.velocity.x = worldMove.x * moveSpeed;
                         player.velocity.z = 0;
                     } else if (!blockedZ && Math.abs(worldMove.z) > 0.01) {
-                        // Can slide in Z direction
                         player.velocity.x = 0;
                         player.velocity.z = worldMove.z * moveSpeed;
                     }
-                    // If both blocked, player can't move (but can rotate)
                 }
             }
         }
-        
-        // Handle rotation - this should work even when not moving
+
         if (!player.rotationLocked) {
             if (player.selectedAttack || player.isAttacking) {
-                // If has selected attack or is attacking, face mouse
                 const toMouse = this.input.getMousePosition().sub(player.position);
                 player.rotation = Math.atan2(toMouse.x, toMouse.z);
             } else if (worldMove.length() > 0) {
-                // Rotate towards movement direction
                 player.rotation = Math.atan2(worldMove.x, worldMove.z);
             }
         }

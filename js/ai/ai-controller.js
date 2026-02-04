@@ -66,7 +66,7 @@ export class AIController {
     }
     
     executeBehavior(dist, dir, delta) {
-        switch(this.player.type) {
+        switch(this.player.pokemonId) {
             case 'charmander':
                 this.charmanderBehavior(dist, dir, delta);
                 break;

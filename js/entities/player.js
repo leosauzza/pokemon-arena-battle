@@ -3,37 +3,42 @@
 // ==========================================
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
-import { createPokemonModel } from '../characters/character-models.js';
-import { AttackManager } from '../attacks/attack-manager.js';
+import { pokemonRegistry } from '../pokemon/pokemon-registry.js';
+import { createPokemonModel } from '../pokemon/model-factory.js';
+import { AttackFactory } from '../attacks/attack-factory.js';
 import { AIController } from '../ai/ai-controller.js';
 import { CONFIG } from '../utils/constants.js';
 
 export class Player {
-    constructor(type, team, isAI = true, id) {
+    constructor(pokemonId, team, isAI = true, id) {
         this.id = id;
-        this.type = type;
+        this.pokemonId = pokemonId;
         this.team = team;
         this.isAI = isAI;
-        this.hp = CONFIG.PLAYER_HP;
-        this.maxHp = CONFIG.PLAYER_HP;
+        this.pokemonData = pokemonRegistry.get(pokemonId);
+
+        this.stats = this.pokemonData.stats;
+        this.hp = this.stats.hp;
+        this.maxHp = this.stats.hp;
+        this.moveSpeed = this.stats.moveSpeed;
         this.isAlive = true;
-        
+
         // Movement
         this.position = new THREE.Vector3();
         this.velocity = new THREE.Vector3();
         this.rotation = 0;
         this.isLocked = false;
         this.rotationLocked = false;
-        
+
         // Attacks
-        this.attacks = AttackManager.getAttacksForPokemon(type);
+        this.attacks = AttackFactory.getAttacksForPokemon(pokemonId, this.pokemonData, this.stats);
         this.selectedAttackIndex = -1;
         this.selectedAttack = null;
-        this.isAttacking = false;  // True during attack execution (for channeled attacks)
-        
+        this.isAttacking = false;
+
         // Create 3D model
-        this.mesh = createPokemonModel(type);
-        
+        this.mesh = createPokemonModel(pokemonId);
+
         // Set initial position based on ID
         const angle = (id / 4) * Math.PI * 2;
         const distance = 20;
@@ -43,13 +48,13 @@ export class Player {
             Math.sin(angle) * distance
         );
         this.mesh.position.copy(this.position);
-        
+
         // AI
         this.aiController = isAI ? new AIController(this) : null;
-        
+
         // Callbacks
-        this.onDamageDealt = null;  // Called when this player deals damage
-        this.onDamageTaken = null;  // Called when this player receives damage
+        this.onDamageDealt = null;
+        this.onDamageTaken = null;
     }
     
     addToScene(scene) {
@@ -62,65 +67,51 @@ export class Player {
     
     update(delta, players, obstacles, scene) {
         if (!this.isAlive) return;
-        
-        // Update attack cooldowns
-        AttackManager.updateAttackCooldowns(this.attacks, delta);
-        
-        // Update HP bar
+
+        AttackFactory.updateAttackCooldowns(this.attacks, delta);
+
         this.updateHPBar();
-        
-        // AI behavior
+
         if (this.isAI && this.aiController) {
             this.aiController.update(delta, players, obstacles, scene);
         }
-        
-        // Apply movement with collision check
+
         if (!this.isLocked) {
             const newPos = this.position.clone().add(this.velocity.clone().multiplyScalar(delta));
-            
-            // Check obstacle collision for AI (player collision is handled in game.js)
+
             if (this.isAI && obstacles) {
-                // Check if already stuck inside obstacle
                 const pushOut = this.getCollisionPushVector(this.position, obstacles);
                 if (pushOut.length() > 0) {
-                    // Push out of obstacle
                     this.position.add(pushOut.multiplyScalar(delta * 50));
                 } else {
-                    // Try normal movement
                     if (!this.checkCollisionAt(newPos, obstacles)) {
                         this.position.copy(newPos);
                     } else {
-                        // Try sliding
                         const newPosX = this.position.clone().add(new THREE.Vector3(this.velocity.x, 0, 0).multiplyScalar(delta));
                         const canMoveX = !this.checkCollisionAt(newPosX, obstacles);
-                        
+
                         const newPosZ = this.position.clone().add(new THREE.Vector3(0, 0, this.velocity.z).multiplyScalar(delta));
                         const canMoveZ = !this.checkCollisionAt(newPosZ, obstacles);
-                        
+
                         if (canMoveX) this.position.x = newPosX.x;
                         if (canMoveZ) this.position.z = newPosZ.z;
                     }
                 }
             } else {
-                // Human player - just apply position (collision handled elsewhere)
                 this.position.copy(newPos);
             }
-            
-            // Boundary check
+
             const limit = CONFIG.ARENA_SIZE / 2 - 2;
             this.position.x = Math.max(-limit, Math.min(limit, this.position.x));
             this.position.z = Math.max(-limit, Math.min(limit, this.position.z));
         }
-        
-        // Update mesh
+
         this.mesh.position.copy(this.position);
         this.mesh.position.y = 0;
         this.mesh.rotation.y = this.rotation;
-        
-        // Clear velocity
+
         this.velocity.set(0, 0, 0);
-        
-        // HP bar face camera
+
         if (this.mesh.userData.hpBar) {
             const camera = window.gameCamera;
             if (camera) {
@@ -222,11 +213,8 @@ export class Player {
         return success;
     }
     
-    /**
-     * Get attack by key binding
-     */
     getAttackByKey(key) {
-        return AttackManager.getAttackByKey(this.attacks, key);
+        return AttackFactory.getAttackByKey(this.attacks, key);
     }
     
     /**

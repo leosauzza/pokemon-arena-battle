@@ -1,98 +1,84 @@
 // ==========================================
-// PIKACHU ATTACKS
+// ELECTRIC ATTACKS
 // ==========================================
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
-import { Attack } from './attack-base.js';
-import { AttackType, CONFIG } from '../utils/constants.js';
-import { checkObstacleBetween, checkObstacleCollision, getForwardVector } from '../utils/helpers.js';
+import { Attack } from '../attack-base.js';
+import { AttackType } from '../../utils/constants.js';
+import { checkObstacleBetween, checkObstacleCollision, getForwardVector } from '../../utils/helpers.js';
+import { attackRegistry } from '../attack-registry.js';
 
 export class QuickAttack extends Attack {
-    constructor() {
-        super({
-            id: 'quickattack',
-            name: 'Quick Attack',
-            description: 'Dash forward quickly',
-            cooldown: 5,
-            damage: CONFIG.ATTACK_DAMAGE,
-            type: AttackType.DASH,
-            range: 10,
-            icon: '⚡',
-            keyBinding: '1'
-        });
-        
+    constructor(config = {}) {
+        super(config);
+
         this.dashDistance = 10;
         this.dashSpeed = 35;
     }
-    
+
     createPreview(player, targetPos) {
-        // Arrow showing dash direction
         const geometry = new THREE.ConeGeometry(0.5, this.dashDistance, 8);
         const material = new THREE.MeshBasicMaterial({
             color: 0xffff00,
             transparent: true,
             opacity: 0.2
         });
-        
+
         this.previewMesh = new THREE.Mesh(geometry, material);
         this.previewMesh.rotation.x = -Math.PI / 2;
         this.previewMesh.position.z = this.dashDistance / 2;
         player.mesh.add(this.previewMesh);
         return this.previewMesh;
     }
-    
+
     removePreview(scene) {
         if (this.previewMesh && this.previewMesh.parent) {
             this.previewMesh.parent.remove(this.previewMesh);
             this.previewMesh = null;
         }
     }
-    
+
     performAttack(player, targetPos, scene, players, obstacles, deltaTime) {
         if (!scene) {
             console.warn('QuickAttack: scene is undefined');
             return false;
         }
-        
+
         const forward = getForwardVector(player.rotation);
         const startPos = player.position.clone();
-        
-        // Trail effect
+
         const trailGeometry = new THREE.SphereGeometry(0.4, 8, 8);
         const trailMaterial = new THREE.MeshBasicMaterial({
             color: 0xffff00,
             transparent: true,
             opacity: 0.5
         });
-        
+
         let distance = 0;
-        
+
         const dashInterval = setInterval(() => {
             if (!player.isAlive) {
                 clearInterval(dashInterval);
                 return;
             }
-            
+
             const moveStep = forward.clone().multiplyScalar(this.dashSpeed * 0.05);
             const newPos = player.position.clone().add(moveStep);
-            
-            // Check obstacle collision
+
             if (checkObstacleCollision(newPos, obstacles)) {
                 clearInterval(dashInterval);
                 return;
             }
-            
+
             player.position.copy(newPos);
             distance = startPos.distanceTo(player.position);
-            
-            // Trail
+
             const trail = new THREE.Mesh(trailGeometry, trailMaterial);
             trail.position.copy(player.position);
             trail.position.y = 0.5;
             scene.add(trail);
             setTimeout(() => scene.remove(trail), 300);
-            
-            // Damage enemies in path
+
             if (players && Array.isArray(players)) {
                 for (let p of players) {
                     if (p !== player && p.isAlive && p.team !== player.team) {
@@ -102,49 +88,37 @@ export class QuickAttack extends Attack {
                     }
                 }
             }
-            
+
             if (distance >= this.dashDistance) {
                 clearInterval(dashInterval);
             }
         }, 50);
-        
+
         return true;
     }
 }
 
 export class ThunderboltAttack extends Attack {
-    constructor() {
-        super({
-            id: 'thunderbolt',
-            name: 'Thunderbolt',
-            description: 'Projectile to target position',
-            cooldown: 6,
-            damage: CONFIG.ATTACK_DAMAGE * 2,
-            type: AttackType.PROJECTILE,
-            range: 15,
-            icon: '🌩️',
-            keyBinding: '2'
-        });
-        
+    constructor(config = {}) {
+        super(config);
+
         this.explosionRadius = 3;
     }
-    
+
     createPreview(player, targetPos, scene) {
-        // Range indicator ring
         const ringGeometry = new THREE.RingGeometry(this.range - 0.2, this.range + 0.2, 64);
-        const ringMaterial = new THREE.MeshBasicMaterial({ 
+        const ringMaterial = new THREE.MeshBasicMaterial({
             color: 0xffff00,
             transparent: true,
             opacity: 0.2,
             side: THREE.DoubleSide
         });
-        
+
         this.previewMesh = new THREE.Mesh(ringGeometry, ringMaterial);
         this.previewMesh.rotation.x = -Math.PI / 2;
         this.previewMesh.position.copy(player.position);
         scene.add(this.previewMesh);
-        
-        // Target indicator at cursor
+
         const targetGeometry = new THREE.RingGeometry(1, 1.2, 32);
         const targetMaterial = new THREE.MeshBasicMaterial({
             color: 0xffff00,
@@ -152,22 +126,21 @@ export class ThunderboltAttack extends Attack {
             opacity: 0.5,
             side: THREE.DoubleSide
         });
-        
+
         this.targetPreview = new THREE.Mesh(targetGeometry, targetMaterial);
         this.targetPreview.rotation.x = -Math.PI / 2;
         this.targetPreview.position.copy(targetPos);
         this.targetPreview.position.y = 0.1;
         scene.add(this.targetPreview);
-        
+
         return this.previewMesh;
     }
-    
+
     updatePreviewPosition(player, targetPos) {
         if (this.targetPreview) {
-            // Clamp to range
             const toTarget = targetPos.clone().sub(player.position);
             const dist = toTarget.length();
-            
+
             if (dist > this.range) {
                 toTarget.normalize().multiplyScalar(this.range);
                 const clampedPos = player.position.clone().add(toTarget);
@@ -177,7 +150,7 @@ export class ThunderboltAttack extends Attack {
             }
         }
     }
-    
+
     removePreview(scene) {
         if (this.previewMesh) {
             scene.remove(this.previewMesh);
@@ -188,7 +161,7 @@ export class ThunderboltAttack extends Attack {
             this.targetPreview = null;
         }
     }
-    
+
     performAttack(player, targetPos, scene, players, obstacles, deltaTime) {
         if (!scene) {
             console.warn('ThunderboltAttack: scene is undefined');
@@ -198,45 +171,40 @@ export class ThunderboltAttack extends Attack {
             console.warn('ThunderboltAttack: targetPos is undefined');
             return false;
         }
-        
-        // Clamp target to range
+
         const toTarget = targetPos.clone().sub(player.position);
         const dist = toTarget.length();
         let finalTarget = targetPos.clone();
-        
+
         if (dist > this.range) {
             toTarget.normalize().multiplyScalar(this.range);
             finalTarget = player.position.clone().add(toTarget);
         }
-        
-        // Lightning ball
+
         const ballGeometry = new THREE.SphereGeometry(0.5, 16, 16);
         const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
         const ball = new THREE.Mesh(ballGeometry, ballMaterial);
         ball.position.copy(player.position);
         ball.position.y = 1.5;
         scene.add(ball);
-        
-        // Animate to target
+
         const startPos = ball.position.clone();
         const duration = 300;
         const startTime = Date.now();
-        
+
         const animate = () => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            
+
             ball.position.lerpVectors(startPos, finalTarget, progress);
             ball.position.y = 1.5 + Math.sin(progress * Math.PI) * 2;
-            
+
             if (progress < 1) {
                 requestAnimationFrame(animate);
             } else {
-                // Explosion
                 scene.remove(ball);
                 this.createExplosion(finalTarget, scene);
-                
-                // Damage
+
                 for (let p of players) {
                     if (p !== player && p.isAlive && p.team !== player.team) {
                         if (finalTarget.distanceTo(p.position) < this.explosionRadius) {
@@ -249,10 +217,10 @@ export class ThunderboltAttack extends Attack {
             }
         };
         animate();
-        
+
         return true;
     }
-    
+
     createExplosion(position, scene) {
         const explosionGeometry = new THREE.SphereGeometry(this.explosionRadius, 16, 16);
         const explosionMaterial = new THREE.MeshBasicMaterial({
@@ -263,8 +231,7 @@ export class ThunderboltAttack extends Attack {
         const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
         explosion.position.copy(position);
         scene.add(explosion);
-        
-        // Lightning particles
+
         for (let i = 0; i < 6; i++) {
             const boltGeometry = new THREE.CylinderGeometry(0.05, 0.05, 4, 4);
             const boltMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
@@ -273,16 +240,16 @@ export class ThunderboltAttack extends Attack {
             bolt.rotation.z = Math.random() * Math.PI;
             bolt.rotation.x = Math.random() * Math.PI;
             scene.add(bolt);
-            
+
             setTimeout(() => scene.remove(bolt), 300);
         }
-        
+
         let scale = 1;
         const animate = () => {
             scale += 0.3;
             explosion.scale.setScalar(scale);
             explosion.material.opacity -= 0.05;
-            
+
             if (explosion.material.opacity > 0) {
                 requestAnimationFrame(animate);
             } else {
@@ -292,3 +259,6 @@ export class ThunderboltAttack extends Attack {
         animate();
     }
 }
+
+attackRegistry.register('quickattack', QuickAttack);
+attackRegistry.register('thunderbolt', ThunderboltAttack);
