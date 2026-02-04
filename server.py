@@ -11,8 +11,8 @@ import webbrowser
 import sys
 import os
 
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8123
-HOST = "localhost"
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get('PORT', 8123))
+HOST = os.environ.get('HOST', 'localhost')
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
