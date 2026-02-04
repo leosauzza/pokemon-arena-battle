@@ -26,16 +26,9 @@ check_port() {
 # Check if port is already in use
 if check_port; then
     echo "⚠️  Port $PORT is already in use!"
-    echo "   Trying to find the process..."
-    
-    # Try to find and show the process
-    if command -v lsof &> /dev/null; then
-        echo "   Process using port $PORT:"
-        lsof -Pi :$PORT -sTCP:LISTEN
-    fi
-    
+    echo "   The server might already be running."
     echo ""
-    read -p "Do you want to kill the process and continue? (y/n): " -n 1 -r
+    read -p "Do you want to stop it and start fresh? (y/n): " -n 1 -r
     echo ""
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -43,6 +36,8 @@ if check_port; then
         if command -v lsof &> /dev/null; then
             kill -9 $(lsof -Pi :$PORT -sTCP:LISTEN -t) 2>/dev/null
         fi
+        # Also try to stop docker container if running
+        docker compose down 2>/dev/null || docker-compose down 2>/dev/null
         sleep 1
     else
         echo "Exiting..."
@@ -53,10 +48,6 @@ fi
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
-
-echo "📁 Serving directory: $SCRIPT_DIR"
-echo "🌐 URL: http://$HOST:$PORT"
-echo ""
 
 # Function to open browser
 open_browser() {
@@ -79,72 +70,61 @@ open_browser() {
     fi
 }
 
-# Try different server options
-start_server() {
-    
-    # Option 1: Python 3
-    if command -v python3 &> /dev/null; then
-        echo "✅ Using Python 3 HTTP server"
-        echo "   Press Ctrl+C to stop the server"
-        echo ""
-        open_browser "http://$HOST:$PORT" &
-        python3 -m http.server $PORT --bind $HOST
-        return 0
-    fi
-    
-    # Option 2: Python 2
-    if command -v python &> /dev/null; then
-        echo "✅ Using Python HTTP server"
-        echo "   Press Ctrl+C to stop the server"
-        echo ""
-        open_browser "http://$HOST:$PORT" &
-        python -m SimpleHTTPServer $PORT
-        return 0
-    fi
-    
-    # Option 3: Node.js http-server
-    if command -v npx &> /dev/null; then
-        echo "📦 Installing/Using Node.js http-server..."
-        echo "   Press Ctrl+C to stop the server"
-        echo ""
-        open_browser "http://$HOST:$PORT" &
-        npx http-server -p $PORT -a $HOST -c-1
-        return 0
-    fi
-    
-    # Option 4: PHP built-in server
-    if command -v php &> /dev/null; then
-        echo "✅ Using PHP built-in server"
-        echo "   Press Ctrl+C to stop the server"
-        echo ""
-        open_browser "http://$HOST:$PORT" &
-        php -S $HOST:$PORT
-        return 0
-    fi
-    
-    # Option 5: Ruby
-    if command -v ruby &> /dev/null; then
-        echo "✅ Using Ruby WEBrick server"
-        echo "   Press Ctrl+C to stop the server"
-        echo ""
-        open_browser "http://$HOST:$PORT" &
-        ruby -run -e httpd . -p $PORT --bind-address=$HOST
-        return 0
-    fi
-    
-    # No server found
-    return 1
-}
-
-# Try to start server
-if ! start_server; then
-    echo "❌ Error: No suitable web server found!"
+# Option 1: Docker (preferred)
+if command -v docker &> /dev/null; then
+    echo "🐳 Using Docker (recommended)"
+    echo "   Building and starting container..."
     echo ""
-    echo "Please install one of the following:"
-    echo "  • Python 3 (recommended): https://www.python.org/"
-    echo "  • Node.js: https://nodejs.org/"
-    echo "  • PHP: https://www.php.net/"
-    echo ""
-    echo "Or manually start any HTTP server on port $PORT"
-    exit 1
+    
+    # Use 'docker compose' (v2) if available, fall back to 'docker-compose' (v1)
+    if docker compose up --build -d 2>/dev/null; then
+        echo ""
+        echo "✅ Server running at http://$HOST:$PORT"
+        echo "   Container: pokemon-arena-battle"
+        echo ""
+        echo "   Commands:"
+        echo "     Stop:  docker compose down"
+        echo "     Logs:  docker compose logs -f"
+        echo ""
+        open_browser "http://$HOST:$PORT"
+        exit 0
+    elif docker-compose up --build -d 2>/dev/null; then
+        echo ""
+        echo "✅ Server running at http://$HOST:$PORT"
+        echo "   Container: pokemon-arena-battle"
+        echo ""
+        echo "   Commands:"
+        echo "     Stop:  docker-compose down"
+        echo "     Logs:  docker-compose logs -f"
+        echo ""
+        open_browser "http://$HOST:$PORT"
+        exit 0
+    else
+        echo "❌ Docker failed, falling back to Python..."
+        echo ""
+    fi
 fi
+
+# Option 2: Python server.py (fallback)
+if command -v python3 &> /dev/null; then
+    echo "🐍 Using Python 3 (Docker not available)"
+    echo "   Run 'docker-compose up -d' for containerized version"
+    echo ""
+    echo "📁 Serving directory: $SCRIPT_DIR"
+    echo "🌐 URL: http://$HOST:$PORT"
+    echo "   Press Ctrl+C to stop the server"
+    echo ""
+    
+    open_browser "http://$HOST:$PORT" &
+    python3 server.py
+    exit 0
+fi
+
+# No server found
+echo "❌ Error: Neither Docker nor Python 3 is available!"
+echo ""
+echo "Please install one of the following:"
+echo "  • Docker (recommended): https://docs.docker.com/get-docker/"
+echo "  • Python 3: https://www.python.org/"
+echo ""
+exit 1

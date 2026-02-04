@@ -188,12 +188,25 @@ performAttack(player, targetPos, scene, players, obstacles, deltaTime, onProject
 
 **Important**: Must use a web server (not file://) due to ES modules.
 
-### Option 1: Bash Script (Recommended)
+### Option 1: Docker (Recommended)
+```bash
+# Build and run with docker-compose
+docker-compose up -d
+
+# Or build and run manually
+docker build -t pokemon-arena-battle .
+docker run -p 8123:8123 pokemon-arena-battle
+```
+
+Then open: http://localhost:8123
+
+### Option 2: Bash Script (Auto-selects best option)
 ```bash
 ./start-server.sh
 ```
+This will use Docker if available, otherwise falls back to Python.
 
-### Option 2: Python
+### Option 3: Python
 ```bash
 python3 server.py
 # or
